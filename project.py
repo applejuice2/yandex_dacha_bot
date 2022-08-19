@@ -23,7 +23,7 @@ formatter = logging.Formatter(
 )
 handler.setFormatter(formatter)
 
-RETRY_TIME = 180
+RETRY_TIME = 60
 ENDPOINT = 'https://plus.yandex.ru/dacha/'
 
 GENRE_EMOJI = {
@@ -40,7 +40,7 @@ def check_tokens():
     Проверяет доступность переменных окружения.
     (которые необходимы для работы программы).
     """
-    logger.info('Проверяю наличия токенов')
+    logger.info('Проверяю наличие токенов')
     if (TELEGRAM_TOKEN and TELEGRAM_CHANNEL_ID):
         return True
     else:
@@ -74,7 +74,7 @@ def parse_all_events(response):
 def parse_available_events(events_of_dacha):
     """Извлекает из всех мероприятий только доступные для регистрации."""
     logger.info('Пробую извлечь доступные мероприятия')
-    available_events = ''
+    available_events = []
 
     for event in events_of_dacha:
         try:
@@ -123,16 +123,35 @@ def parse_available_events(events_of_dacha):
                             'Количество билетов: '
                             f'{number_of_tickets_of_event}\n')
 
-        available_events += info_about_event
+        available_events.append(info_about_event)
 
+    return available_events
+
+
+def search_events_differences(previous_available_events, available_events):
+    """Проверяет старые и новые мероприятия с одинаковым"""
+    """количеством билетов на пересечения"""
+    """и выбирает только уникальные новые мероприятия"""
+    logger.info('Проверяю мероприятия на уникальность')
+    if (available_events != previous_available_events and
+            (set(available_events) & set(previous_available_events))):
+        logger.info('Появились уникальные мероприятия')
+        available_events = [event for event in available_events
+                            if event not in previous_available_events]
+    else:
+        logger.info('Новых уникальных мероприятий нет')
     return available_events
 
 
 def make_message(available_events):
     """Формирует сообщение для отправки."""
     logger.info('Формирую сообщение')
-    site_url_string = f'\n<a href="{ENDPOINT}"><i>— На сайт —</i></a>'
-    message = available_events + site_url_string
+    if available_events:
+        site_url_string = f'\n<a href="{ENDPOINT}"><i>— На сайт —</i></a>'
+        available_events = ''.join(available_events)
+        message = available_events + site_url_string
+    else:
+        message = available_events
     return message
 
 
@@ -143,7 +162,7 @@ def send_message(bot, message):
         bot.send_message(TELEGRAM_CHANNEL_ID, message,
                          parse_mode=telegram.ParseMode.HTML,
                          disable_web_page_preview=True)
-        logger.info('Сообщение направлено')
+        logger.info('Сообщение направлено в Телеграм')
     except telegram.TelegramError:
         logger.error('Сбой при отправке сообщения в Telegram')
         raise Exception('сбой при отправке сообщения в Telegram')
@@ -152,26 +171,28 @@ def send_message(bot, message):
 def main():
     """Основная логика работы бота."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    previous_available_events = ''
+    available_events = []
 
     while True:
         try:
             if check_tokens():
                 response = get_site_answer()
                 events_of_dacha = parse_all_events(response)
+                previous_available_events = available_events
                 available_events = parse_available_events(events_of_dacha)
+                if available_events:
+                    available_events = search_events_differences(previous_available_events,
+                                                                available_events)
+                    if available_events:
+                        message = make_message(available_events)
+                        send_message(bot, message)
+                else:
+                    logger.info('Нет новых доступных мероприятий')
             else:
                 raise Exception('Проверь значение токенов')
         except Exception as error:
             logger.error(f'Сбой в работе программы: {error}')
-        finally:
-            if available_events != previous_available_events:
-                message = make_message(available_events)
-                send_message(bot, message)
-                previous_available_events = available_events
-            else:
-                logger.info('Нет новых доступных мероприятий')
-            time.sleep(RETRY_TIME)
+        time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
