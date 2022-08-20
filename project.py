@@ -134,24 +134,23 @@ def search_events_differences(previous_available_events, available_events):
     """и выбирает только уникальные новые мероприятия"""
     logger.info('Проверяю мероприятия на уникальность')
     if (available_events != previous_available_events and
-            (set(available_events) & set(previous_available_events))):
+            ((set(available_events) & set(previous_available_events)) or
+             not len(previous_available_events))):
         logger.info('Появились уникальные мероприятия')
-        available_events = [event for event in available_events
-                            if event not in previous_available_events]
+        unique_available_events = [event for event in available_events
+                                   if event not in previous_available_events]
     else:
+        unique_available_events = []
         logger.info('Новых уникальных мероприятий нет')
-    return available_events
+    return unique_available_events
 
 
-def make_message(available_events):
+def make_message(unique_available_events):
     """Формирует сообщение для отправки."""
     logger.info('Формирую сообщение')
-    if available_events:
-        site_url_string = f'\n<a href="{ENDPOINT}"><i>— На сайт —</i></a>'
-        available_events = ''.join(available_events)
-        message = available_events + site_url_string
-    else:
-        message = available_events
+    site_url_string = f'\n<a href="{ENDPOINT}"><i>— На сайт —</i></a>'
+    unique_available_events = ''.join(unique_available_events)
+    message = unique_available_events + site_url_string
     return message
 
 
@@ -181,10 +180,10 @@ def main():
                 previous_available_events = available_events
                 available_events = parse_available_events(events_of_dacha)
                 if available_events:
-                    available_events = search_events_differences(previous_available_events,
-                                                                available_events)
-                    if available_events:
-                        message = make_message(available_events)
+                    unique_available_events = search_events_differences(previous_available_events,
+                                                                        available_events)
+                    if unique_available_events:
+                        message = make_message(unique_available_events)
                         send_message(bot, message)
                 else:
                     logger.info('Нет новых доступных мероприятий')
