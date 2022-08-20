@@ -23,7 +23,7 @@ formatter = logging.Formatter(
 )
 handler.setFormatter(formatter)
 
-RETRY_TIME = 60
+RETRY_TIME = 120
 ENDPOINT = 'https://plus.yandex.ru/dacha/'
 
 GENRE_EMOJI = {
