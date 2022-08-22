@@ -1,18 +1,11 @@
-import os
-import time
 import logging
-from http import HTTPStatus
-
 import requests
+from http import HTTPStatus
+import telegram
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import emoji
-import telegram
-
-load_dotenv()
-
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHANNEL_ID = os.getenv('TELEGRAM_CHANNEL_ID')
+from fake_useragent import UserAgent
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -23,9 +16,6 @@ formatter = logging.Formatter(
 )
 handler.setFormatter(formatter)
 
-RETRY_TIME = 150
-ENDPOINT = 'https://plus.yandex.ru/dacha/'
-
 GENRE_EMOJI = {
     'Театр': emoji.emojize(':performing_arts:'),
     'Йога': emoji.emojize(':person_in_lotus_position_light_skin_tone:'),
@@ -34,33 +24,31 @@ GENRE_EMOJI = {
     'Кино': emoji.emojize(':popcorn:')
 }
 
-
-def check_tokens(tg_token, tg_channel_id):
-    """
-    Проверяет доступность переменных окружения.
-    (которые необходимы для работы программы).
-    """
-    logger.info('Проверяю наличие токенов')
-    if (tg_token and tg_channel_id):
-        return True
-    else:
-        logger.critical('Необходимо проверить правильность токенов')
-        return False
-
-
-def get_site_answer(url):
+ENDPOINT = 'https://plus.yandex.ru/dacha/'
+# ENDPOINT = 'https://httpbin.org/get'
+# ENDPOINT = 'http://habr.ru'
+# proxy = {'http': '127.0.0.1:8080'}
+# requests.get(ENDPOINT, proxies=proxy)
+def get_site_answer():
     """Делает запрос к сайту Яндекс Дачи."""
     logger.info('Направляю запрос к сайту')
-    try:
-        response = requests.get(url)
-        response.encoding = 'utf8'
-        if response.status_code != HTTPStatus.OK:
-            logger.error('На данный момент сайт недоступен')
-            raise Exception('На данный момент сайт недоступен')
-    except Exception:
-        logger.error('Неверный URL')
-        raise Exception('Неверный URL')
+    # try:
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15"}
+    cookie = {'_yasc': 'vMMKwXyCOnGJE1EuMT3wADKb/id3fCFZWLQ4FcQcf2fV4w'}
+    proxy = {'https': '95.154.64.101:8080'}
+    # response = requests.get(ENDPOINT, proxies=proxy, verify=False, headers=headers)
+    response = requests.get(ENDPOINT, proxies=proxy, verify=False, headers=headers)
+    response.encoding = 'utf8'
+    if response.status_code != HTTPStatus.OK:
+        logger.error('На данный момент сайт недоступен')
+        raise Exception('На данный момент сайт недоступен')
+    # except Exception:
+    #     logger.error('Неверный URL')
+    #     raise Exception('Неверный URL')
 
+    print(response.text)
+    print(response.cookies)
+    # print(response.content)
     return response
 
 
@@ -68,9 +56,9 @@ def parse_all_events(response):
     """Преобразовывает данные в нужный формат и парсит все мероприятия"""
     logger.info('Преобразовываю данные')
     soup = BeautifulSoup(response.text, 'lxml')
+    print(soup)
     events_of_dacha = soup.find_all('li', class_='dacha-events__item')
     return events_of_dacha
-
 
 def parse_available_events(events_of_dacha):
     """Извлекает из всех мероприятий только доступные для регистрации."""
@@ -128,72 +116,7 @@ def parse_available_events(events_of_dacha):
 
     return available_events
 
-
-def search_events_differences(previous_available_events, available_events):
-    """Проверяет старые и новые мероприятия с одинаковым"""
-    """количеством билетов на пересечения"""
-    """и выбирает только уникальные новые мероприятия"""
-    logger.info('Проверяю мероприятия на уникальность')
-    if (available_events != previous_available_events and
-            ((set(available_events) & set(previous_available_events)) or
-             not len(previous_available_events))):
-        logger.info('Появились уникальные мероприятия')
-        unique_available_events = [event for event in available_events
-                                   if event not in previous_available_events]
-    else:
-        unique_available_events = []
-        logger.info('Новых уникальных мероприятий нет')
-    return unique_available_events
-
-
-def make_message(unique_available_events):
-    """Формирует сообщение для отправки."""
-    logger.info('Формирую сообщение')
-    site_url_string = f'\n<a href="{ENDPOINT}"><i>— На сайт —</i></a>'
-    unique_available_events = ''.join(unique_available_events)
-    message = unique_available_events + site_url_string
-    return message
-
-
-def send_message(bot, message):
-    """Отправляет сообщение в Telegram."""
-    logger.info('Направляю сообщение в Telegram')
-    try:
-        bot.send_message(TELEGRAM_CHANNEL_ID, message,
-                         parse_mode=telegram.ParseMode.HTML,
-                         disable_web_page_preview=True)
-        logger.info('Сообщение направлено в Телеграм')
-    except telegram.TelegramError:
-        logger.error('Сбой при отправке сообщения в Telegram')
-        raise Exception('сбой при отправке сообщения в Telegram')
-
-
-def main():
-    """Основная логика работы бота."""
-    bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    available_events = []
-
-    while True:
-        try:
-            if check_tokens(TELEGRAM_TOKEN, TELEGRAM_CHANNEL_ID):
-                response = get_site_answer(ENDPOINT)
-                events_of_dacha = parse_all_events(response)
-                previous_available_events = available_events
-                available_events = parse_available_events(events_of_dacha)
-                if available_events:
-                    unique_available_events = search_events_differences(previous_available_events,
-                                                                        available_events)
-                    if unique_available_events:
-                        message = make_message(unique_available_events)
-                        send_message(bot, message)
-                else:
-                    logger.info('Нет новых доступных мероприятий')
-            else:
-                raise Exception('Проверь значение токенов')
-        except Exception as error:
-            logger.error(f'Сбой в работе программы: {error}')
-        time.sleep(RETRY_TIME)
-
-
-if __name__ == '__main__':
-    main()
+response = get_site_answer()
+# # events_of_dacha = parse_all_events(response)
+# # available_events = parse_available_events(events_of_dacha)
+# # print(available_events)
