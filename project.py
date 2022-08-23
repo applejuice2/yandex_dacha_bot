@@ -33,7 +33,8 @@ GENRE_EMOJI = {
     'Йога': emoji.emojize(':person_in_lotus_position_light_skin_tone:'),
     'Дети': emoji.emojize(':family_woman_boy:'),
     'Музыка': emoji.emojize(':headphone:'),
-    'Кино': emoji.emojize(':popcorn:')
+    'Кино': emoji.emojize(':popcorn:'),
+    'Лекции': emoji.emojize(':woman_student_medium-light_skin_tone:')
 }
 
 
