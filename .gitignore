@@ -147,3 +147,6 @@ dmypy.json
 
 # файлы
 file_for_testing.py
+project_with_middleware_site.py
+tester_with_selenium.py
+project_old_version.py
