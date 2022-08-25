@@ -34,7 +34,7 @@ GENRE_EMOJI = {
     'Дети': emoji.emojize(':family_woman_boy:'),
     'Музыка': emoji.emojize(':headphone:'),
     'Кино': emoji.emojize(':popcorn:'),
-    'Лекции': emoji.emojize(':woman_student_medium-light_skin_tone:')
+    'Лекции': emoji.emojize(':woman_student_medium-light_skin_tone:'),
 }
 
 
@@ -56,9 +56,15 @@ def get_site_answer(url, driver_path):
     logger.info('Направляю запрос к сайту')
     try:
         browser_options = ChromeOptions()
-        browser_options.add_argument('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15')
-        browser_options.add_argument('--disable-blink-features=AutomationControlled')
-        # Происходит открытие браузера, но на экране пользователя этого не отображается
+        browser_options.add_argument('Mozilla/5.0 (Macintosh; '
+                                     'Intel Mac OS X 10_15_7) '
+                                     'AppleWebKit/605.1.15 '
+                                     '(KHTML, like Gecko) '
+                                     'Version/15.5 Safari/605.1.15')
+        browser_options.add_argument('--disable-blink-features='
+                                     'AutomationControlled')
+        # Происходит открытие браузера,
+        # но на экране пользователя этого не отображается
         # из-за добавленного аргумента headless
         browser_options.add_argument('--headless')
         browser_options.add_argument('--no-sandbox')
@@ -68,7 +74,7 @@ def get_site_answer(url, driver_path):
             browser.get(url)
             response = browser.page_source
         except Exception as error:
-            # Проверить status_code запроса (сравнив с HTTPStatus.OK) 
+            # Проверить status_code запроса (сравнив с HTTPStatus.OK)
             # нет возможности, так как Селениум не предоставляет эту
             # информацию по замыслу
             # Проверить, что HTTPStatus.OK можно, сделав доп. запрос
@@ -102,40 +108,53 @@ def parse_available_events(events_of_dacha):
 
     for event in events_of_dacha:
         try:
-            event.find('button', class_='ui-button '
-                                        'dacha-event-card__button '
-                                        'ui-button_blue '
-                                        'ui-button_size-l '
-                                        'ui-button_variant-default').text
+            event.find(
+                'button', class_='ui-button '
+                'dacha-event-card__button '
+                'ui-button_blue '
+                'ui-button_size-l '
+                'ui-button_variant-default'
+                ).text
         except AttributeError:
             continue
 
-        name_of_event = event.find('h4', class_='ui-typography '
-                                                'ui-typography_size-24-normal '
-                                                'ui-typography_weight-medium '
-                                                'ui-typography_align-left '
-                                                'dacha-event-card__title').text
+        name_of_event = event.find(
+            'h4', class_='ui-typography '
+                         'ui-typography_size-24-normal '
+                         'ui-typography_weight-medium '
+                         'ui-typography_align-left '
+                         'dacha-event-card__title'
+                         ).text
+
         date_of_event, time_of_event = event.find(
-                                        'div',
-                                        class_='ui-typography '
-                                               'ui-typography_size-16 '
-                                               'ui-typography_weight-regular '
-                                               'ui-typography_align-left '
-                                               'dacha-event-card__date').text.replace('·', '—').split(',')
+            'div', class_='ui-typography '
+                          'ui-typography_size-16 '
+                          'ui-typography_weight-regular '
+                          'ui-typography_align-left '
+                          'dacha-event-card__date'
+                          ).text.replace('·', '—').split(',')
         # Парсинг url фото мероприятия
-        # photo_code = event.find('div', class_='dacha-event-card__content')
-        # url_of_photo_of_event = photo.find('style').text.split('("')[1].split(' ')[0].rstrip('")')
-        genre_info_parsed = event.find('span', class_='ui-typography '
-                                                      'ui-typography_size-16 '
-                                                      'ui-typography_weight-regular '
-                                                      'ui-typography_align-left '
-                                                      'dacha-event-card__description').text
-        genre_of_event = ''.join(symbol for symbol in genre_info_parsed if symbol.isalpha())
-        tickets_info_parsed = event.find('div', class_='ui-typography '
-                                                       'ui-typography_size-16-normal '
-                                                       'ui-typography_weight-regular '
-                                                       'ui-typography_align-center '
-                                                       'dacha-event-card__description').text
+        # photo_parsed = event.find('div', class_='dacha-event-card__content')
+        # photo_text = photo_parsed.find('style').text
+        # photo_url = photo_text.split('("')[1].split(' ')[0].rstrip('")')
+
+        genre_info_parsed = event.find(
+            'span', class_='ui-typography '
+                           'ui-typography_size-16 '
+                           'ui-typography_weight-regular '
+                           'ui-typography_align-left '
+                           'dacha-event-card__description'
+                           ).text
+        genre_of_event = ''.join(symbol for symbol in genre_info_parsed
+                                 if symbol.isalpha())
+
+        tickets_info_parsed = event.find(
+            'div', class_='ui-typography '
+                          'ui-typography_size-16-normal '
+                          'ui-typography_weight-regular '
+                          'ui-typography_align-center '
+                          'dacha-event-card__description'
+                          ).text
         number_of_tickets_of_event = ''.join(symbol for symbol in
                                              tickets_info_parsed
                                              if symbol.isdigit())
@@ -152,13 +171,13 @@ def search_events_differences(previous_available_events, available_events):
     """Проверяет старые и новые мероприятия с одинаковым"""
     """количеством билетов на пересечения"""
     """и выбирает только уникальные новые мероприятия"""
-    logger.info('Проверяю мероприятия на уникальность')
+    logger.info(f'Проверяю мероприятия {available_events} на уникальность')
     unique_available_events = []
     if (available_events != previous_available_events and
-        available_events):
+            available_events):
         for event in available_events:
-            if not any(previous_event.name == event.name and 
-                       previous_event.date == event.date for 
+            if not any(previous_event.name == event.name and
+                       previous_event.date == event.date for
                        previous_event in previous_available_events):
                 unique_available_events.append(event)
     if unique_available_events:
@@ -211,8 +230,10 @@ def main():
                 previous_available_events = available_events
                 available_events = parse_available_events(events_of_dacha)
                 if available_events:
-                    unique_available_events = search_events_differences(previous_available_events,
-                                                                        available_events)
+                    unique_available_events = search_events_differences(
+                        previous_available_events,
+                        available_events)
+
                     if unique_available_events:
                         message = make_message(unique_available_events)
                         send_message(bot, message)

@@ -6,6 +6,6 @@ class Event:
         self.time = time
         self.genre = genre
         self.available_tickets = availabla_tickets
-    
+
     def __repr__(self):
-        return f'{self.name}{self.date}'
+        return f'{self.name}'
