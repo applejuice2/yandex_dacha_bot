@@ -47,7 +47,6 @@ def check_tokens(tg_token, tg_channel_id):
     if (tg_token and tg_channel_id):
         return True
     else:
-        logger.critical('Необходимо проверить правильность токенов')
         return False
 
 
@@ -227,18 +226,22 @@ def main():
             if check_tokens(TELEGRAM_TOKEN, TELEGRAM_CHANNEL_ID):
                 response = get_site_answer(ENDPOINT, DRIVER_PATH)
                 events_of_dacha = parse_all_events(response)
-                previous_available_events = available_events
-                available_events = parse_available_events(events_of_dacha)
-                if available_events:
-                    unique_available_events = search_events_differences(
-                        previous_available_events,
-                        available_events)
-
-                    if unique_available_events:
-                        message = make_message(unique_available_events)
-                        send_message(bot, message)
+                if not events_of_dacha:
+                    raise Exception('Возникла капча, '
+                                    'не открылась страница мероприятий')
                 else:
-                    logger.info('Нет новых доступных мероприятий')
+                    previous_available_events = available_events
+                    available_events = parse_available_events(events_of_dacha)
+                    if available_events:
+                        unique_available_events = search_events_differences(
+                            previous_available_events,
+                            available_events)
+
+                        if unique_available_events:
+                            message = make_message(unique_available_events)
+                            send_message(bot, message)
+                    else:
+                        logger.info('Нет новых доступных мероприятий')
             else:
                 raise Exception('Проверь значение токенов')
         except Exception as error:
